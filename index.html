@@ -10,8 +10,9 @@
     <meta property="og:description" content="지옥에서 살아남아라! 실시간 동기화 한문 퀴즈 & 룰렛 프로그램">
     <meta property="og:type" content="website">
 
-    <!-- PeerJS 라이브러리 (별도 설정 없는 실시간 기기 간 통신용) -->
-    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <!-- Firebase SDK (기기 간 실시간 완벽 동기화용) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@700;800&family=Noto+Sans+KR:wght@500;700;900&display=swap');
@@ -563,11 +564,7 @@
         <div class="teacher-card">
             <div class="teacher-header">
                 <span>👑 교사 제어 센터</span>
-                <span id="connection-status" style="font-size: 15px; color: #ff4d4d; font-weight: bold;">⏳ 서버 연결 중...</span>
-            </div>
-
-            <div style="margin-bottom: 15px; font-size: 16px; color: #ffaaaa;">
-                대기중인 영혼들 : <span id="teacher-conn-count" style="color:#ffff00; font-size:24px;">0</span>명
+                <span style="font-size: 18px; color:#ffaaaa;">대기중인 영혼들 : <span id="teacher-conn-count" style="color:#ffff00; font-size:24px;">0</span>명</span>
             </div>
 
             <!-- Action Buttons Row -->
@@ -703,6 +700,13 @@
     </div>
 
     <script>
+        // 전 세계 공용 무료 실시간 클라우드 DB 연동 설정
+        const firebaseConfig = {
+            databaseURL: "https://hanja-hell-default-rtdb.firebaseio.com/"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
         const quizBanks = {
             low: [
                 { char: '日', answer: '날 일', choices: ['날 일', '달 월', '불 화', '물 수'] },
@@ -803,87 +807,30 @@
         let startTimeStamp = 0;
         let isTeacherMode = false;
 
-        let peer = null;
-        let myPeerId = null;
-        let studentConnections = {}; 
-        let teacherConnection = null; 
-
         window.onload = () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const role = urlParams.get('role');
-
-            if (role === 'student') {
-                isTeacherMode = false;
-                showScreen('screen-register');
-                initStudentPeer();
-            } else {
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('role') === 'student') {
+                    isTeacherMode = false;
+                    showScreen('screen-register');
+                } else {
+                    isTeacherMode = true;
+                    showScreen('screen-teacher');
+                    initTeacherFirebaseListeners();
+                    // 접속하자마자 이전 데이터 깨끗이 청소
+                    db.ref('students').remove();
+                    db.ref('results').remove();
+                    db.ref('wrongLogs').remove();
+                }
+            } catch (err) {
                 isTeacherMode = true;
                 showScreen('screen-teacher');
-                initTeacherPeer();
+                initTeacherFirebaseListeners();
             }
         };
 
-        function initTeacherPeer() {
-            peer = new Peer(); 
-            peer.on('open', (id) => {
-                myPeerId = id;
-                const statusEl = document.getElementById('connection-status');
-                if (statusEl) {
-                    statusEl.innerText = "🟢 서버 연결 완료 (입장 가능)";
-                    statusEl.style.color = "#00ff00";
-                }
-            });
-
-            peer.on('connection', (conn) => {
-                conn.on('data', (data) => {
-                    handleDataFromStudent(conn, data);
-                });
-                conn.on('close', () => {
-                    removeStudentByPeerId(conn.peer);
-                });
-            });
-        }
-
-        function removeStudentByPeerId(peerId) {
-            for (let key in studentConnections) {
-                if (studentConnections[key].peer === peerId) {
-                    delete studentConnections[key];
-                    break;
-                }
-            }
-            connectedStudents = Object.values(studentConnections).map(c => c.studentInfo);
-            updateTeacherView();
-        }
-
-        function handleDataFromStudent(conn, data) {
-            if (data.type === 'STUDENT_JOIN') {
-                conn.studentInfo = data.student;
-                studentConnections[conn.peer] = conn;
-                
-                connectedStudents = Object.values(studentConnections).map(c => c.studentInfo);
-                updateTeacherView();
-            } else if (data.type === 'SUBMIT_RESULT') {
-                submittedResults.push(data.result);
-                studentWrongDetails.push({ student: data.result.student, wrongList: data.wrongList });
-            } else if (data.type === 'WRONG_ANSWER_LOG') {
-                if (questionWrongCounts[data.qIndex] !== undefined) {
-                    questionWrongCounts[data.qIndex]++;
-                } else {
-                    questionWrongCounts[data.qIndex] = 1;
-                }
-            }
-        }
-
-        function initStudentPeer() {
-            peer = new Peer();
-            peer.on('open', (id) => {
-                myPeerId = id;
-            });
-        }
-
         function getStudentUrl() {
-            const hostId = myPeerId || (peer ? peer.id : '');
-            return window.location.origin + window.location.pathname + `?role=student&host=${hostId}`;
+            return window.location.origin + window.location.pathname + '?role=student';
         }
 
         function openQrModal() {
@@ -891,11 +838,6 @@
             const container = document.getElementById('qr-img-container');
             const targetUrl = getStudentUrl();
             
-            if (!targetUrl.includes('host=') || targetUrl.endsWith('host=')) {
-                alert('⏳ 아직 서버와 연결 중입니다. 상단의 [🟢 서버 연결 완료] 글자가 뜬 뒤에 다시 눌러주세요!');
-                return;
-            }
-
             container.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(targetUrl)}" alt="QR Code" width="180" height="180" style="display:block;">`;
             modal.style.display = 'flex';
         }
@@ -932,10 +874,6 @@
 
         function copyStudentLink() {
             const studentUrl = getStudentUrl();
-            if (!studentUrl.includes('host=') || studentUrl.endsWith('host=')) {
-                alert('⏳ 아직 서버와 연결 중입니다. 상단의 [🟢 서버 연결 완료] 글자가 뜬 뒤에 다시 눌러주세요!');
-                return;
-            }
             if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(studentUrl).then(() => {
                     alert('📋 학생 접속 전용 링크가 복사되었습니다!');
@@ -970,33 +908,13 @@
             errEl.style.display = 'none';
             currentStudent = { grade: g, classNum: c, num: n, name: name };
             document.getElementById('student-info-tag').innerText = `[ ${g}학년 ${c}반 ${n}번 ${name} ]`;
+            
+            // 클라우드 DB에 학생 등록
+            const studentKey = `${g}_${c}_${n}_${name}`.replace(/[.#$\/\[\]]/g, "_");
+            db.ref('students/' + studentKey).set(currentStudent);
 
-            const urlParams = new URLSearchParams(window.location.search);
-            const hostId = urlParams.get('host');
-
-            if (!hostId) {
-                alert('⚠️ 선생님 연결 정보(host)가 없습니다. QR 코드를 다시 스캔해 주세요!');
-                return;
-            }
-
-            teacherConnection = peer.connect(hostId);
-            teacherConnection.on('open', () => {
-                teacherConnection.send({ type: 'STUDENT_JOIN', student: currentStudent });
-            });
-
-            teacherConnection.on('data', (data) => {
-                handleDataFromTeacher(data);
-            });
-
+            initStudentFirebaseListeners();
             showScreen('screen-student-wait');
-        }
-
-        function handleDataFromTeacher(data) {
-            if (data.type === 'START_GAME') {
-                totalTimeSec = data.timerSec;
-                currentQuizList = quizBanks[data.difficulty] || quizBanks.mid;
-                triggerCountdown();
-            }
         }
 
         function spinNumberRoulette() {
@@ -1030,21 +948,68 @@
             const timerVal = parseInt(document.getElementById('teacher-timer-sec').value) || 60;
             const diffVal = document.getElementById('teacher-difficulty').value;
             
-            submittedResults = [];
-            studentWrongDetails = [];
-            currentQuizList = quizBanks[diffVal];
-            questionWrongCounts = new Array(currentQuizList.length).fill(0);
+            db.ref('results').remove();
+            db.ref('wrongLogs').remove();
 
-            for (let key in studentConnections) {
-                studentConnections[key].send({
-                    type: 'START_GAME',
-                    timerSec: timerVal,
-                    difficulty: diffVal
-                });
-            }
+            db.ref('gameState').set({
+                status: 'STARTED',
+                timerSec: timerVal,
+                difficulty: diffVal,
+                timestamp: Date.now()
+            });
 
             totalTimeSec = timerVal;
+            currentQuizList = quizBanks[diffVal];
+            submittedResults = [];
+            studentWrongDetails = [];
+            questionWrongCounts = new Array(currentQuizList.length).fill(0);
             triggerCountdown();
+        }
+
+        function initTeacherFirebaseListeners() {
+            db.ref('students').on('value', (snapshot) => {
+                const data = snapshot.val();
+                connectedStudents = [];
+                if (data) {
+                    Object.values(data).forEach(s => connectedStudents.push(s));
+                }
+                updateTeacherView();
+            });
+
+            db.ref('results').on('value', (snapshot) => {
+                const data = snapshot.val();
+                submittedResults = [];
+                studentWrongDetails = [];
+                if (data) {
+                    Object.values(data).forEach(item => {
+                        submittedResults.push(item.result);
+                        studentWrongDetails.push({ student: item.result.student, wrongList: item.wrongList });
+                    });
+                }
+            });
+
+            db.ref('wrongLogs').on('value', (snapshot) => {
+                const data = snapshot.val();
+                questionWrongCounts = new Array(currentQuizList.length || 25).fill(0);
+                if (data) {
+                    Object.values(data).forEach(log => {
+                        if (questionWrongCounts[log.qIndex] !== undefined) {
+                            questionWrongCounts[log.qIndex] = log.count || (questionWrongCounts[log.qIndex] + 1);
+                        }
+                    });
+                }
+            });
+        }
+
+        function initStudentFirebaseListeners() {
+            db.ref('gameState').on('value', (snapshot) => {
+                const state = snapshot.val();
+                if (state && state.status === 'STARTED') {
+                    totalTimeSec = state.timerSec;
+                    currentQuizList = quizBanks[state.difficulty] || quizBanks.mid;
+                    triggerCountdown();
+                }
+            });
         }
 
         function triggerCountdown() {
@@ -1123,9 +1088,14 @@
                 correctCount++;
             } else {
                 studentWrongList.push({ qNum: qIndex + 1, char: q.char, answer: q.answer });
-                if (teacherConnection) {
-                    teacherConnection.send({ type: 'WRONG_ANSWER_LOG', qIndex: qIndex });
-                }
+                
+                db.ref('wrongLogs/q_' + qIndex).transaction((currentData) => {
+                    if (currentData === null) {
+                        return { qIndex: qIndex, count: 1 };
+                    } else {
+                        return { qIndex: qIndex, count: (currentData.count || 0) + 1 };
+                    }
+                });
             }
 
             currentQuizIndex++;
@@ -1184,14 +1154,11 @@
                 elapsed: elapsed,
                 isSuccess: isSuccess
             };
-
-            if (teacherConnection) {
-                teacherConnection.send({
-                    type: 'SUBMIT_RESULT',
-                    result: resultData,
-                    wrongList: studentWrongList
-                });
-            }
+            const studentKey = `${currentStudent.grade}_${currentStudent.classNum}_${currentStudent.num}_${currentStudent.name}`.replace(/[.#$\/\[\]]/g, "_");
+            db.ref('results/' + studentKey).set({
+                result: resultData,
+                wrongList: studentWrongList
+            });
 
             showScreen('screen-result');
         }
