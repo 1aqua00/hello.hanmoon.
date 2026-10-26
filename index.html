@@ -764,7 +764,7 @@
                 { char: '智', answer: '지혜 지', choices: ['지혜 지', '어리석을 우', '알 지', '생각 사'] },
                 { char: '信', answer: '믿을 신', choices: ['믿을 신', '속일 사', '의심할 의', '알 지'] },
                 { char: '仁', answer: '어질 인', choices: ['어질 인', '사나울 맹', '찰 냉', '성낼 진'] },
-                { `char`: '恕', answer: '용서할 서', choices: ['용서할 서', '꾸짖을 질', '미워할 오', '시샘할 투'] },
+                { char: '恕', answer: '용서할 서', choices: ['용서할 서', '꾸짖을 질', '미워할 오', '시샘할 투'] },
                 { char: '誠', answer: '정성 성', choices: ['정성 성', '거짓 위', '마음 심', '뜻 의'] },
                 { char: '敬', answer: '공경 경', choices: ['공경 경', '업신여길 만', '미워할 오', '사랑 애'] },
                 { char: '愛', answer: '사랑 애', choices: ['사랑 애', '미워할 증', '슬플 비', '기쁠 희'] },
@@ -799,11 +799,10 @@
         let startTimeStamp = 0;
         let isTeacherMode = false;
 
-        // PeerJS 통신 관련 변수
         let peer = null;
         let myPeerId = null;
-        let studentConnections = {}; // 선생님 기준: 연결된 학생들의 커넥션 객체들
-        let teacherConnection = null; // 학생 기준: 선생님과의 커넥션 객체
+        let studentConnections = {}; 
+        let teacherConnection = null; 
 
         window.onload = () => {
             const urlParams = new URLSearchParams(window.location.search);
@@ -820,9 +819,8 @@
             }
         };
 
-        // --- 교사 Peer 초기화 ---
         function initTeacherPeer() {
-            peer = new Peer(); // 자동으로 고유 ID 생성
+            peer = new Peer(); 
             peer.on('open', (id) => {
                 myPeerId = id;
             });
@@ -832,7 +830,6 @@
                     handleDataFromStudent(conn, data);
                 });
                 conn.on('close', () => {
-                    // 학생 연결 끊김 처리
                     removeStudentByPeerId(conn.peer);
                 });
             });
@@ -845,7 +842,6 @@
                     break;
                 }
             }
-            // 남은 학생 목록 갱신
             connectedStudents = Object.values(studentConnections).map(c => c.studentInfo);
             updateTeacherView();
         }
@@ -869,7 +865,6 @@
             }
         }
 
-        // --- 학생 Peer 초기화 ---
         function initStudentPeer() {
             peer = new Peer();
             peer.on('open', (id) => {
@@ -908,7 +903,7 @@
                 bodyEl.innerHTML = studentWrongDetails.map(item => {
                     const wrongs = item.wrongList || [];
                     const wrongText = wrongs.length === 0 
-                        ? '<span style="color:#00ff00;">틀린 문제가 없습니다! (만점 수여)</span>' 
+                        ? '<span style="color:#00ff00;">틀린 문제가 없습니다! (만점)</span>' 
                         : wrongs.map(w => `<span style="background:#330000; border:1px solid #ff4d4d; padding:2px 8px; border-radius:4px; margin-right:6px; display:inline-block; margin-bottom:4px;">[${w.qNum}번] ${w.char} (정답: ${w.answer})</span>`).join('');
                     
                     return `
@@ -975,10 +970,8 @@
                 return;
             }
 
-            // 학생이 선생님에게 연결 시도
             teacherConnection = peer.connect(hostId);
             teacherConnection.on('open', () => {
-                // 연결 성공 시 학생 정보 전송
                 teacherConnection.send({ type: 'STUDENT_JOIN', student: currentStudent });
             });
 
@@ -1033,7 +1026,6 @@
             currentQuizList = quizBanks[diffVal];
             questionWrongCounts = new Array(currentQuizList.length).fill(0);
 
-            // 연결된 모든 학생에게 시작 신호 브로드캐스트
             for (let key in studentConnections) {
                 studentConnections[key].send({
                     type: 'START_GAME',
