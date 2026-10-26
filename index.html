@@ -10,6 +10,10 @@
     <meta property="og:description" content="지옥에서 살아남아라! 실시간 동기화 한문 퀴즈 & 룰렛 프로그램">
     <meta property="og:type" content="website">
 
+    <!-- Firebase SDK (실시간 기기 간 통신용) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@700;800&family=Noto+Sans+KR:wght@500;700;900&display=swap');
 
@@ -696,6 +700,13 @@
     </div>
 
     <script>
+        // Firebase 무료 공용 실시간 DB 연동 설정
+        const firebaseConfig = {
+            databaseURL: "https://hanja-hell-default-rtdb.firebaseio.com/"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
         const quizBanks = {
             low: [
                 { char: '日', answer: '날 일', choices: ['날 일', '달 월', '불 화', '물 수'] },
@@ -782,45 +793,22 @@
 
         let currentQuizList = [];
         let connectedStudents = [];
-        let submittedResults = []; // Stores student results for ranking
-        let questionWrongCounts = []; // Tracks wrong counts per question index
-        let studentWrongDetails = []; // Tracks specific wrong questions per student { student, wrongList: [...] }
+        let submittedResults = [];
+        let questionWrongCounts = [];
+        let studentWrongDetails = [];
         
         let currentStudent = null;
         let currentQuizIndex = 0;
         let correctCount = 0;
-        let studentWrongList = []; // Current student's wrong questions during test
+        let studentWrongList = [];
         let timerInterval = null;
         let totalTimeSec = 60;
         let remainingTimeSec = 60;
         let startTimeStamp = 0;
         let isTeacherMode = false;
 
-        const channel = new BroadcastChannel('hanja_game_channel');
-
-        channel.onmessage = (event) => {
-            const data = event.data;
-            if (data.type === 'STUDENT_JOIN') {
-                if (!connectedStudents.some(s => s.grade === data.student.grade && s.classNum === data.student.classNum && s.num === data.student.num)) {
-                    connectedStudents.push(data.student);
-                    updateTeacherView();
-                }
-            } else if (data.type === 'START_GAME') {
-                totalTimeSec = data.timerSec;
-                currentQuizList = quizBanks[data.difficulty] || quizBanks.mid;
-                submittedResults = [];
-                studentWrongDetails = [];
-                questionWrongCounts = new Array(currentQuizList.length).fill(0);
-                triggerCountdown();
-            } else if (data.type === 'SUBMIT_RESULT') {
-                submittedResults.push(data.result);
-                studentWrongDetails.push({ student: data.result.student, wrongList: data.wrongList });
-            } else if (data.type === 'WRONG_ANSWER_LOG') {
-                if (isTeacherMode && questionWrongCounts[data.qIndex] !== undefined) {
-                    questionWrongCounts[data.qIndex]++;
-                }
-            }
-        };
+        // 세션 아이디 생성 (새로운 게임 시작 시 데이터 초기화용)
+        let gameSessionId = "default_session";
 
         window.onload = () => {
             try {
@@ -831,10 +819,12 @@
                 } else {
                     isTeacherMode = true;
                     showScreen('screen-teacher');
+                    initTeacherFirebaseListeners();
                 }
             } catch (err) {
                 isTeacherMode = true;
                 showScreen('screen-teacher');
+                initTeacherFirebaseListeners();
             }
         };
 
@@ -861,7 +851,7 @@
                 bodyEl.innerHTML = '<div style="color:#777; text-align:center; padding:20px;">제출된 학생 기록이 없거나 오답 데이터가 없습니다.</div>';
             } else {
                 bodyEl.innerHTML = studentWrongDetails.map(item => {
-                    const wrongs = item.wrongList;
+                    const wrongs = item.wrongList || [];
                     const wrongText = wrongs.length === 0 
                         ? '<span style="color:#00ff00;">틀린 문제가 없습니다! (만점)</span>' 
                         : wrongs.map(w => `<span style="background:#330000; border:1px solid #ff4d4d; padding:2px 8px; border-radius:4px; margin-right:6px; display:inline-block; margin-bottom:4px;">[${w.qNum}번] ${w.char} (정답: ${w.answer})</span>`).join('');
@@ -918,7 +908,13 @@
             currentStudent = { grade: g, classNum: c, num: n, name: name };
             document.getElementById('student-info-tag').innerText = `[ ${g}학년 ${c}반 ${n}번 ${name} ]`;
             
-            channel.postMessage({ type: 'STUDENT_JOIN', student: currentStudent });
+            // Firebase에 학생 등록 전송
+            const studentKey = `${g}_${c}_${n}_${name}`.replace(/[.#$\/\[\]]/g, "_");
+            db.ref('students/' + studentKey).set(currentStudent);
+
+            // 학생 화면에서 게임 시작 신호 감지 리스너 등록
+            initStudentFirebaseListeners();
+
             showScreen('screen-student-wait');
         }
 
@@ -953,13 +949,72 @@
             const timerVal = parseInt(document.getElementById('teacher-timer-sec').value) || 60;
             const diffVal = document.getElementById('teacher-difficulty').value;
             
-            channel.postMessage({ type: 'START_GAME', timerSec: timerVal, difficulty: diffVal });
+            // 이전 결과 초기화 후 Firebase에 시작 명령 전송
+            db.ref('results').remove();
+            db.ref('wrongLogs').remove();
+
+            db.ref('gameState').set({
+                status: 'STARTED',
+                timerSec: timerVal,
+                difficulty: diffVal,
+                timestamp: Date.now()
+            });
+
             totalTimeSec = timerVal;
             currentQuizList = quizBanks[diffVal];
             submittedResults = [];
             studentWrongDetails = [];
             questionWrongCounts = new Array(currentQuizList.length).fill(0);
             triggerCountdown();
+        }
+
+        function initTeacherFirebaseListeners() {
+            // 접속 학생 명단 실시간 수신
+            db.ref('students').on('value', (snapshot) => {
+                const data = snapshot.val();
+                connectedStudents = [];
+                if (data) {
+                    Object.values(data).forEach(s => connectedStudents.push(s));
+                }
+                updateTeacherView();
+            });
+
+            // 제출된 결과 및 오답 수신
+            db.ref('results').on('value', (snapshot) => {
+                const data = snapshot.val();
+                submittedResults = [];
+                studentWrongDetails = [];
+                if (data) {
+                    Object.values(data).forEach(item => {
+                        submittedResults.push(item.result);
+                        studentWrongDetails.push({ student: item.result.student, wrongList: item.wrongList });
+                    });
+                }
+            });
+
+            // 문제별 오답 수신
+            db.ref('wrongLogs').on('value', (snapshot) => {
+                const data = snapshot.val();
+                questionWrongCounts = new Array(currentQuizList.length || 25).fill(0);
+                if (data) {
+                    Object.values(data).forEach(log => {
+                        if (questionWrongCounts[log.qIndex] !== undefined) {
+                            questionWrongCounts[log.qIndex] = log.count || (questionWrongCounts[log.qIndex] + 1);
+                        }
+                    });
+                }
+            });
+        }
+
+        function initStudentFirebaseListeners() {
+            db.ref('gameState').on('value', (snapshot) => {
+                const state = snapshot.val();
+                if (state && state.status === 'STARTED') {
+                    totalTimeSec = state.timerSec;
+                    currentQuizList = quizBanks[state.difficulty] || quizBanks.mid;
+                    triggerCountdown();
+                }
+            });
         }
 
         function triggerCountdown() {
@@ -1038,7 +1093,15 @@
                 correctCount++;
             } else {
                 studentWrongList.push({ qNum: qIndex + 1, char: q.char, answer: q.answer });
-                channel.postMessage({ type: 'WRONG_ANSWER_LOG', qIndex: qIndex });
+                
+                // Firebase에 오답 기록 누적
+                db.ref('wrongLogs/q_' + qIndex).transaction((currentData) => {
+                    if (currentData === null) {
+                        return { qIndex: qIndex, count: 1 };
+                    } else {
+                        return { qIndex: qIndex, count: (currentData.count || 0) + 1 };
+                    }
+                });
             }
 
             currentQuizIndex++;
@@ -1091,14 +1154,18 @@
                 subEl.innerText = isTimeout ? "시간 초과로 지옥 탈출에 실패했습니다..." : "95% 이상 달성하지 못해 지옥에 남게 됩니다.";
             }
 
-            // Submit result and wrong details to teacher
+            // Firebase에 학생 결과 전송
             const resultData = {
                 student: currentStudent,
                 percentage: percentage,
                 elapsed: elapsed,
                 isSuccess: isSuccess
             };
-            channel.postMessage({ type: 'SUBMIT_RESULT', result: resultData, wrongList: studentWrongList });
+            const studentKey = `${currentStudent.grade}_${currentStudent.classNum}_${currentStudent.num}_${currentStudent.name}`.replace(/[.#$\/\[\]]/g, "_");
+            db.ref('results/' + studentKey).set({
+                result: resultData,
+                wrongList: studentWrongList
+            });
 
             showScreen('screen-result');
         }
