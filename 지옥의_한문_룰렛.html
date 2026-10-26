@@ -1,0 +1,1159 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>지옥의 한문 룰렛</title>
+    
+    <!-- 카카오톡 및 메신저 공유 시 뜨는 미리보기 카드 설정 -->
+    <meta property="og:title" content="지옥의 한문 룰렛">
+    <meta property="og:description" content="지옥에서 살아남아라! 실시간 동기화 한문 퀴즈 & 룰렛 프로그램">
+    <meta property="og:type" content="website">
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@700;800&family=Noto+Sans+KR:wght@500;700;900&display=swap');
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: #0d0606;
+            color: #ffffff;
+            font-family: 'Noto Sans KR', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+            padding: 20px 0;
+        }
+
+        /* 1. Student Registration Screen */
+        #screen-register {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100vh;
+        }
+
+        .reg-box {
+            width: 320px;
+            background-color: #080303;
+            border: 2px solid #990000;
+            border-radius: 12px;
+            padding: 30px 24px;
+            box-shadow: 0 0 25px rgba(255, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .reg-title {
+            color: #ff0000;
+            font-size: 24px;
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 8px;
+            letter-spacing: 2px;
+            text-shadow: 0 0 10px rgba(255,0,0,0.6);
+        }
+
+        .reg-input {
+            width: 100%;
+            height: 48px;
+            background-color: #000000;
+            border: 1.5px solid #cc0000;
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 18px;
+            font-weight: 700;
+            text-align: center;
+            outline: none;
+            user-select: auto;
+        }
+
+        .reg-input::placeholder {
+            color: #888888;
+            font-weight: 500;
+        }
+
+        .reg-input:focus {
+            border-color: #ff3333;
+            box-shadow: 0 0 12px rgba(255, 51, 51, 0.5);
+        }
+
+        .btn-submit {
+            width: 100%;
+            height: 52px;
+            background: linear-gradient(180deg, #cc0000 0%, #880000 100%);
+            border: 1px solid #ff3333;
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 20px;
+            font-weight: 900;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.4);
+            margin-top: 8px;
+            transition: filter 0.2s;
+        }
+
+        .btn-submit:hover {
+            filter: brightness(1.2);
+        }
+
+        .err-msg {
+            color: #ff4d4d;
+            font-size: 14px;
+            text-align: center;
+            display: none;
+            font-weight: bold;
+        }
+
+        /* 2. Student Waiting Screen */
+        #screen-student-wait {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .wait-pulse {
+            font-size: 28px;
+            color: #ff4d4d;
+            font-weight: 800;
+            animation: pulse 1.5s infinite alternate;
+            margin-bottom: 15px;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.4; transform: scale(0.98); }
+            100% { opacity: 1; transform: scale(1.02); text-shadow: 0 0 15px #ff0000; }
+        }
+
+        /* 3. Teacher Dashboard Screen */
+        #screen-teacher {
+            display: flex;
+            width: 100%;
+            max-width: 900px;
+            padding: 20px;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .teacher-card {
+            background: #140808;
+            border: 1px solid #660000;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.8);
+        }
+
+        .teacher-header {
+            font-size: 24px;
+            color: #ff3333;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #441111;
+            padding-bottom: 12px;
+            margin-bottom: 15px;
+        }
+
+        .action-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .roulette-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            margin: 10px 0;
+        }
+
+        .roulette-display {
+            width: 130px;
+            height: 130px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #2a0000 0%, #050000 100%);
+            border: 4px solid #ff0000;
+            box-shadow: 0 0 25px rgba(255, 0, 0, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            font-weight: 900;
+            color: #ffff00;
+            text-shadow: 0 0 10px #ff0000;
+        }
+
+        .controls-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 15px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .control-group label {
+            font-size: 14px;
+            color: #ff8888;
+            font-weight: bold;
+        }
+
+        .control-group select, .control-group input {
+            height: 44px;
+            background: #000;
+            border: 1.5px solid #ff3333;
+            color: #fff;
+            padding: 0 12px;
+            font-size: 16px;
+            border-radius: 8px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        /* 3-1. Teacher Live Monitoring Screen (During Quiz) */
+        #screen-teacher-live {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 40px;
+            background: #140808;
+            border: 2px solid #ff0000;
+            border-radius: 16px;
+            box-shadow: 0 0 40px rgba(255,0,0,0.5);
+            width: 100%;
+            max-width: 700px;
+        }
+
+        .live-timer-big {
+            font-size: 90px;
+            color: #ffff00;
+            font-weight: 900;
+            text-shadow: 0 0 25px #ff0000;
+            margin: 20px 0;
+        }
+
+        /* 3-2. Teacher Ranking & Statistics Screen */
+        #screen-teacher-ranking {
+            display: none;
+            flex-direction: column;
+            width: 100%;
+            max-width: 900px;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        .rank-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            background: #080303;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .rank-table th, .rank-table td {
+            padding: 12px;
+            text-align: center;
+            border-bottom: 1px solid #331111;
+            font-size: 15px;
+        }
+
+        .rank-table th {
+            background: #330000;
+            color: #ff8888;
+            font-weight: bold;
+        }
+
+        .rank-table tr:hover {
+            background: #1c0a0a;
+        }
+
+        /* Modal for Student Detail Wrong Report */
+        #detail-modal {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        }
+        .detail-modal-content {
+            background: #140808;
+            border: 2px solid #ff3333;
+            border-radius: 14px;
+            padding: 30px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            box-shadow: 0 0 30px rgba(255,0,0,0.6);
+        }
+
+        /* 4. Quiz Screen (Student) */
+        #screen-quiz {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 600px;
+            padding: 20px;
+        }
+
+        .quiz-header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .timer-bar-container {
+            width: 100%;
+            height: 12px;
+            background: #220808;
+            border-radius: 6px;
+            overflow: hidden;
+            margin-bottom: 25px;
+            border: 1px solid #441111;
+        }
+
+        .timer-bar-fill {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, #ff0000, #ff6600);
+            transition: width 0.1s linear;
+        }
+
+        .hanja-display {
+            font-family: 'Nanum Myeongjo', serif;
+            font-size: 110px;
+            font-weight: 800;
+            color: #ffffff;
+            text-shadow: 0 0 20px rgba(255, 0, 0, 0.8), 0 0 40px rgba(255, 0, 0, 0.4);
+            margin: 20px 0 35px 0;
+            min-height: 140px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .options-grid {
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+        }
+
+        .option-btn {
+            background: #1a0808;
+            border: 2px solid #661111;
+            border-radius: 10px;
+            padding: 18px 12px;
+            color: #ffffff;
+            font-size: 20px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 10px;
+        }
+
+        .option-btn:hover {
+            border-color: #ff3333;
+            background: #330d0d;
+        }
+
+        .option-num {
+            background: #660000;
+            color: #fff;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        /* 5. Result Screen (Student) */
+        #screen-result {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 30px 20px;
+        }
+
+        .result-title {
+            font-size: 42px;
+            font-weight: 900;
+            letter-spacing: 3px;
+            margin-bottom: 10px;
+        }
+        .result-title.success {
+            color: #ff0000;
+            text-shadow: 0 0 25px rgba(255, 0, 0, 0.9);
+        }
+        .result-title.fail {
+            color: #888888;
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
+        }
+
+        .result-box {
+            background: #1a0808;
+            border: 2px solid #880000;
+            border-radius: 12px;
+            padding: 24px 40px;
+            margin: 20px 0 30px 0;
+            font-size: 20px;
+            min-width: 300px;
+        }
+
+        .ranking-notice-box {
+            background: linear-gradient(180deg, #330000 0%, #110000 100%);
+            border: 2px solid #ff3333;
+            border-radius: 10px;
+            padding: 18px 24px;
+            color: #ffff00;
+            font-size: 20px;
+            font-weight: 900;
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+            animation: pulseNotice 2s infinite alternate;
+        }
+
+        @keyframes pulseNotice {
+            0% { transform: scale(0.98); opacity: 0.9; }
+            100% { transform: scale(1.02); opacity: 1; box-shadow: 0 0 30px rgba(255, 0, 0, 0.8); }
+        }
+
+        /* QR Modal */
+        #qr-modal {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.85);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        }
+        .qr-modal-content {
+            background: #140808;
+            border: 2px solid #ff3333;
+            border-radius: 14px;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 0 30px rgba(255,0,0,0.6);
+            text-align: center;
+        }
+
+        /* Countdown Overlay */
+        #countdown-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+
+        .count-num {
+            font-size: 140px;
+            color: #ff0000;
+            font-weight: 900;
+            text-shadow: 0 0 40px #ff0000;
+            animation: popIn 0.8s infinite;
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- QR Code Modal Popup -->
+    <div id="qr-modal" onclick="closeQrModal()">
+        <div class="qr-modal-content" onclick="event.stopPropagation()">
+            <div style="font-size: 20px; font-weight: 900; color: #ff3333;">📱 학생 입장용 QR 코드</div>
+            <div style="font-size: 13px; color: #ccc;">스마트폰 카메라로 스캔하면 바로 입장됩니다.</div>
+            <div id="qr-img-container" style="background: #fff; padding: 10px; border-radius: 8px;"></div>
+            <button type="button" class="btn-submit" style="height:40px; font-size:14px;" onclick="copyStudentLink()">📋 링크 복사하기</button>
+            <button type="button" class="btn-submit" style="height:36px; font-size:13px; background:#440000; border-color:#880000;" onclick="closeQrModal()">닫기</button>
+        </div>
+    </div>
+
+    <!-- Teacher Detail Wrong Report Modal -->
+    <div id="detail-modal" onclick="closeDetailModal()">
+        <div class="detail-modal-content" onclick="event.stopPropagation()">
+            <div style="font-size: 20px; font-weight: 900; color: #ff3333; display:flex; justify-content:space-between; align-items:center;">
+                <span>🔍 학생별 오답 상세 명단 (선생님 전용)</span>
+                <button type="button" style="background:none; border:none; color:#fff; font-size:20px; cursor:pointer;" onclick="closeDetailModal()">✕</button>
+            </div>
+            <div id="detail-modal-body" style="font-size: 14px; color: #ddd; display:flex; flex-direction:column; gap:10px;">
+                <!-- Filled dynamically -->
+            </div>
+            <button type="button" class="btn-submit" style="height:40px; font-size:14px; background:#440000; border-color:#880000;" onclick="closeDetailModal()">닫기</button>
+        </div>
+    </div>
+
+    <!-- 1. Student Registration Screen -->
+    <div id="screen-register">
+        <form class="reg-box" onsubmit="handleFormSubmit(event)">
+            <div class="reg-title">학생 등록</div>
+            <input type="text" id="reg-grade" class="reg-input" placeholder="학년" inputmode="numeric">
+            <input type="text" id="reg-class" class="reg-input" placeholder="반" inputmode="numeric">
+            <input type="text" id="reg-num" class="reg-input" placeholder="번호" inputmode="numeric">
+            <input type="text" id="reg-name" class="reg-input" placeholder="이름">
+            <div id="reg-error-msg" class="err-msg">⚠️ 모든 항목을 정확히 입력해주세요!</div>
+            <button type="submit" class="btn-submit">입장하기</button>
+        </form>
+    </div>
+
+    <!-- 2. Student Waiting Screen -->
+    <div id="screen-student-wait">
+        <div class="wait-pulse">🔥 지옥의 대기실 🔥</div>
+        <div style="font-size: 18px; color: #ccc; margin-top: 10px;">
+            선생님이 게임을 시작하기를 기다리고 있습니다...
+        </div>
+        <div id="student-info-tag" style="margin-top:25px; color:#ff8888; font-weight:bold;"></div>
+    </div>
+
+    <!-- 3. Teacher Dashboard Screen -->
+    <div id="screen-teacher">
+        <div class="teacher-card">
+            <div class="teacher-header">
+                <span>👑 교사 제어 센터</span>
+                <span style="font-size: 18px; color:#ffaaaa;">대기중인 영혼들 : <span id="teacher-conn-count" style="color:#ffff00; font-size:24px;">0</span>명</span>
+            </div>
+
+            <!-- Action Buttons Row -->
+            <div class="action-row">
+                <button type="button" class="btn-submit" style="flex:1; height:46px; font-size:15px; background:linear-gradient(180deg, #660000 0%, #330000 100%); border-color:#ff3333;" onclick="openQrModal()">📱 QR 코드로 학생 초대</button>
+                <button type="button" class="btn-submit" style="flex:1; height:46px; font-size:15px;" onclick="copyStudentLink()">📋 학생 링크 복사</button>
+            </div>
+
+            <!-- Number Roulette -->
+            <div class="roulette-container">
+                <div style="font-size: 18px; font-weight: bold; color: #ff6666;">🎲 번호 룰렛</div>
+                <div class="roulette-display" id="roulette-num-display">?</div>
+                <button type="button" class="btn-submit" style="width:180px; height:42px; font-size:15px;" onclick="spinNumberRoulette()">번호 추첨 돌리기</button>
+            </div>
+
+            <hr style="border-color:#441111; margin: 20px 0;">
+
+            <div class="controls-row">
+                <div class="control-group">
+                    <label>🎯 난이도 선택</label>
+                    <select id="teacher-difficulty">
+                        <option value="low">하</option>
+                        <option value="mid" selected>중</option>
+                        <option value="high">상</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>⏱️ 타이머 설정 (30초~120초)</label>
+                    <input type="number" id="teacher-timer-sec" value="60" min="30" max="120" style="width:140px;">
+                </div>
+                <button type="button" class="btn-submit" style="width:200px; background: linear-gradient(180deg, #ff0000 0%, #990000 100%); margin-top:18px;" onclick="broadcastStartGame()">⚡ 전체 동시 시작</button>
+            </div>
+        </div>
+
+        <div class="teacher-card">
+            <div style="font-weight: bold; margin-bottom: 10px; color:#ff8888;">📋 접속한 학생 명단</div>
+            <div id="teacher-student-list" style="display:flex; flex-wrap:wrap; gap:10px;">
+                <span style="color:#777;">아직 접속한 학생이 없습니다.</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3-1. Teacher Live Monitoring Screen (During Quiz) -->
+    <div id="screen-teacher-live">
+        <div class="wait-pulse" style="font-size: 32px;">🔥 지옥의 시험 진행 중 🔥</div>
+        <div style="font-size: 18px; color: #aaa; margin-top: 5px;">학생들이 퀴즈를 풀고 있습니다. 화면을 공개하지 마세요!</div>
+        <div class="live-timer-big" id="teacher-live-timer">60초</div>
+        <div style="font-size: 16px; color: #ff8888; font-weight: bold;">남은 시간 동안 대기해 주세요.</div>
+    </div>
+
+    <!-- 3-2. Teacher Ranking & Statistics Screen -->
+    <div id="screen-teacher-ranking">
+        <div class="teacher-card">
+            <div class="teacher-header">
+                <span>🏆 지옥 탈출 순위 & 분석 리포트</span>
+                <div style="display:flex; gap:10px;">
+                    <button type="button" class="btn-submit" style="width:190px; height:38px; font-size:13px; margin-top:0; background:#660000;" onclick="openDetailModal()">🔍 학생별 오답 상세 명단</button>
+                    <button type="button" class="btn-submit" style="width:140px; height:38px; font-size:13px; margin-top:0;" onclick="resetToTeacherDashboard()">🔄 대기실로 돌아가기</button>
+                </div>
+            </div>
+
+            <div style="font-size: 18px; font-weight: bold; color: #ff6666; margin-bottom: 10px;">🥇 학생 전체 순위 (1등 ~ 꼴등)</div>
+            <div style="overflow-x: auto; max-height: 280px;">
+                <table class="rank-table">
+                    <thead>
+                        <tr>
+                            <th>순위</th>
+                            <th>학년/반/번호</th>
+                            <th>이름</th>
+                            <th>정답률 (%)</th>
+                            <th>소요 시간</th>
+                            <th>지옥 탈출 결과</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ranking-table-body">
+                        <!-- Dynamic list -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="font-size: 18px; font-weight: bold; color: #ff6666; margin-top: 25px; margin-bottom: 10px;">📊 문제별 오답 분석 (어떤 문제에서 몇 명이 틀렸나?)</div>
+            <div style="overflow-x: auto; max-height: 220px;">
+                <table class="rank-table">
+                    <thead>
+                        <tr>
+                            <th>문제 번호</th>
+                            <th>한자</th>
+                            <th>정답</th>
+                            <th>오답 학생 수</th>
+                        </tr>
+                    </thead>
+                    <tbody id="question-stat-table-body">
+                        <!-- Dynamic list -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. Quiz Screen (Student) -->
+    <div id="screen-quiz">
+        <div class="quiz-header">
+            <span id="quiz-progress" style="color:#ff6666; font-weight:bold;">문제 1 / 10</span>
+            <span id="quiz-timer-text" style="color:#ffff00; font-weight:bold;">남은 시간: 60초</span>
+        </div>
+        <div class="timer-bar-container">
+            <div class="timer-bar-fill" id="timer-bar"></div>
+        </div>
+
+        <div class="hanja-display" id="hanja-char">學</div>
+        <div class="options-grid" id="options-container"></div>
+    </div>
+
+    <!-- 5. Result Screen (Student) -->
+    <div id="screen-result">
+        <div id="res-title-text" class="result-title">지옥 탈출 성공!</div>
+        <div id="res-sub-text" style="font-size: 20px; color: #dddddd;">95% 이상 정답으로 통과하셨습니다!</div>
+        
+        <div class="result-box">
+            <div>⏱️ 소요 시간 : <span id="res-time" style="color:#ffff00; font-weight:bold;">0초</span></div>
+            <div style="margin-top:8px;">🎯 정답률 : <span id="res-percentage" style="color:#00ff00; font-weight:bold;">0%</span> (<span id="res-score-count">0/0</span>)</div>
+        </div>
+
+        <div class="ranking-notice-box">
+            📢 선생님의 화면에서 순위를 확인하세요!
+        </div>
+    </div>
+
+    <!-- Countdown Overlay -->
+    <div id="countdown-overlay">
+        <div style="color:#fff; font-size:24px; margin-bottom:20px;">전체 동시 시작! 준비하세요!</div>
+        <div class="count-num" id="count-number">3</div>
+    </div>
+
+    <script>
+        const quizBanks = {
+            low: [
+                { char: '日', answer: '날 일', choices: ['날 일', '달 월', '불 화', '물 수'] },
+                { char: '月', answer: '달 월', choices: ['날 일', '달 월', '뫼 산', '내 천'] },
+                { char: '山', answer: '뫼 산', choices: ['뫼 산', '밭 전', '돌 석', '흙 토'] },
+                { char: '川', answer: '내 천', choices: ['내 천', '물 수', '바다 해', '강 강'] },
+                { char: '人', answer: '사람 인', choices: ['사람 인', '큰 대', '하늘 천', '설 립'] },
+                { char: '木', answer: '나무 목', choices: ['나무 목', '물 수', '불 화', '흙 토'] },
+                { char: '水', answer: '물 수', choices: ['물 수', '날 일', '달 월', '내 천'] },
+                { char: '火', answer: '불 화', choices: ['불 화', '물 수', '흙 토', '쇠 금'] },
+                { char: '土', answer: '흙 토', choices: ['흙 토', '뫼 산', '내 천', '나무 목'] },
+                { char: '金', answer: '쇠 금', choices: ['쇠 금', '흙 토', '불 화', '물 수'] },
+                { char: '大', answer: '큰 대', choices: ['큰 대', '작을 소', '위 상', '아래 하'] },
+                { char: '小', answer: '작을 소', choices: ['작을 소', '큰 대', '왼 좌', '오른 우'] },
+                { char: '上', answer: '위 상', choices: ['위 상', '아래 하', '큰 대', '작을 소'] },
+                { char: '下', answer: '아래 하', choices: ['아래 하', '위 상', '동녘 동', '서녘 서'] },
+                { char: '左', answer: '왼 좌', choices: ['왼 좌', '오른 우', '위 상', '아래 하'] },
+                { char: '右', answer: '오른 우', choices: ['오른 우', '왼 좌', '남녘 남', '북녘 북'] },
+                { char: '東', answer: '동녘 동', choices: ['동녘 동', '서녘 서', '남녘 남', '북녘 북'] },
+                { char: '西', answer: '서녘 서', choices: ['서녘 서', '동녘 동', '남녘 남', '북녘 북'] },
+                { char: '南', answer: '남녘 남', choices: ['남녘 남', '북녘 북', '동녘 동', '서녘 서'] },
+                { char: '北', answer: '북녘 북', choices: ['북녘 북', '남녘 남', '동녘 동', '서녘 서'] }
+            ],
+            mid: [
+                { char: '學', answer: '배울 학', choices: ['배울 학', '가르칠 교', '글월 문', '익힐 습'] },
+                { char: '校', answer: '학교 교', choices: ['학교 교', '나무 목', '집 가', '나라 국'] },
+                { char: '問', answer: '물을 문', choices: ['물을 문', '들 문', '문 문', '답할 답'] },
+                { char: '答', answer: '대답 답', choices: ['대답 답', '물을 문', '글 글', '알 지'] },
+                { char: '書', answer: '글 서', choices: ['글 서', '책 책', '글자 자', '말 언'] },
+                { char: '國', answer: '나라 국', choices: ['나라 국', '집 가', '임금 왕', '백성 민'] },
+                { char: '家', answer: '집 가', choices: ['집 가', '나라 국', '나무 목', '마을 촌'] },
+                { char: '友', answer: '벗 우', choices: ['벗 우', '형 형', '아우 제', '사람 인'] },
+                { char: '兄', answer: '형 형', choices: ['형 형', '아우 제', '아비 부', '어미 모'] },
+                { char: '弟', answer: '아우 제', choices: ['아우 제', '형 형', '벗 우', '자식 자'] },
+                { char: '父', answer: '아비 부', choices: ['아비 부', '어미 모', '형 형', '아우 제'] },
+                { char: '母', answer: '어미 모', choices: ['어미 모', '아비 부', '아들 자', '딸 녀'] },
+                { char: '先', answer: '먼저 선', choices: ['먼저 선', '뒤 후', '날 생', '배울 학'] },
+                { char: '生', answer: '날 생', choices: ['날 생', '죽을 사', '먼저 선', '익힐 습'] },
+                { char: '韓', answer: '한국 한', choices: ['한국 한', '나라이름 한', '글자 자', '책 책'] },
+                { char: '漢', answer: '한나라 한', choices: ['한나라 한', '한국 한', '글월 문', '말 언'] },
+                { char: '字', answer: '글자 자', choices: ['글자 자', '말 언', '글 서', '책 책'] },
+                { char: '心', answer: '마음 심', choices: ['마음 심', '생각 사', '뜻 의', '알 지'] },
+                { char: '手', answer: '손 수', choices: ['손 수', '발 족', '눈 목', '입 구'] },
+                { char: '足', answer: '발 족', choices: ['발 족', '손 수', '다리 족', '몸 신'] },
+                { char: '耳', answer: '귀 이', choices: ['귀 이', '눈 목', '입 구', '머리 두'] },
+                { char: '目', answer: '눈 목', choices: ['눈 목', '귀 이', '입 구', '얼굴 면'] },
+                { char: '口', answer: '입 구', choices: ['입 구', '눈 목', '귀 이', '코 비'] },
+                { char: '讀', answer: '읽을 독', choices: ['읽을 독', '쓸 사', '셀 계', '들을 청'] },
+                { char: '寫', answer: '쓸 사', choices: ['쓸 사', '읽을 독', '그릴 화', '말할 설'] }
+            ],
+            high: [
+                { char: '施', answer: '베풀 시', choices: ['베풀 시', '될 화', '날 출', '입 구'] },
+                { char: '於', answer: '어조사 어', choices: ['어조사 어', '쓸 용', '동녘 동', '해 년'] },
+                { char: '隱', answer: '숨을 은', choices: ['숨을 은', '나타날 현', '밝을 명', '어두울 암'] },
+                { char: '嚴', answer: '엄할 엄', choices: ['엄할 엄', '부드러울 유', '사나울 맹', '착할 선'] },
+                { char: '謹', answer: '삼갈 근', choices: ['삼갈 근', '방자할 방', '거만할 오', '두려워할 두'] },
+                { char: '謙', answer: '겸손할 겸', choices: ['겸손할 겸', '거만할 오', '뽐낼 과', '성낼 진'] },
+                { char: '讓', answer: '사양할 양', choices: ['사양할 양', '다툴 경', '빼앗을 탈', '거절할 거'] },
+                { char: '孝', answer: '효도 효', choices: ['효도 효', '충성 충', '사랑 애', '공경 경'] },
+                { char: '忠', answer: '충성 충', choices: ['충성 충', '효도 효', '의로울 의', '믿을 신'] },
+                { char: '義', answer: '옳을 의', choices: ['옳을 의', '그를 비', '어질 인', '지혜 지'] },
+                { char: '禮', answer: '예도 례', choices: ['예도 례', '악할 악', '법 법', '형벌 형'] },
+                { char: '智', answer: '지혜 지', choices: ['지혜 지', '어리석을 우', '알 지', '생각 사'] },
+                { char: '信', answer: '믿을 신', choices: ['믿을 신', '속일 사', '의심할 의', '알 지'] },
+                { char: '仁', answer: '어질 인', choices: ['어질 인', '사나울 맹', '찰 냉', '성낼 진'] },
+                { char: '恕', answer: '용서할 서', choices: ['용서할 서', '꾸짖을 질', '미워할 오', '시샘할 투'] },
+                { char: '誠', answer: '정성 성', choices: ['정성 성', '거짓 위', '마음 심', '뜻 의'] },
+                { char: '敬', answer: '공경 경', choices: ['공경 경', '업신여길 만', '미워할 오', '사랑 애'] },
+                { char: '愛', answer: '사랑 애', choices: ['사랑 애', '미워할 증', '슬플 비', '기쁠 희'] },
+                { char: '寬', answer: '너그러울 관', choices: ['너그러울 관', '좁을 협', '성낼 진', '급할 급'] },
+                { char: '厚', answer: '두터울 후', choices: ['두터울 후', '얇을 박', '클 대', '작을 소'] },
+                { char: '敏', answer: '민첩할 민', choices: ['민첩할 민', '더딜 지', '게으를 나', '느긋할 완'] },
+                { char: '捷', answer: '빠를 첩', choices: ['빠를 첩', '늦을만', '더딜 지', '오랠 구'] },
+                { char: '聰', answer: '귀밝을 총', choices: ['귀밝을 총', '눈어두울 롱', '귀먹을 롱', '벙어리 벙'] },
+                { char: '明', answer: '밝을 명', choices: ['밝을 명', '어두울 암', '흐릴 혼', '검을 흑'] },
+                { char: '哲', answer: '밝을 철', choices: ['밝을 철', '어리석을 우', '미련할 미', '틀릴 오'] },
+                { char: '理', answer: '다스릴 리', choices: ['다스릴 리', '어지러울 난', '막힐 색', '끊을 절'] },
+                { char: '氣', answer: '기운 기', choices: ['기운 기', '힘 력', '뼈 골', '살 육'] },
+                { char: '道', answer: '길 도', choices: ['길 도', '막힐 색', '사방 사', '곳 소'] },
+                { char: '德', answer: '큰 덕', choices: ['큰 덕', '악할 악', '허물 허', '벌 벌'] },
+                { char: '業', answer: '업 업', choices: ['업 업', '일 사', '마칠 종', '시작 시'] }
+            ]
+        };
+
+        let currentQuizList = [];
+        let connectedStudents = [];
+        let submittedResults = []; // Stores student results for ranking
+        let questionWrongCounts = []; // Tracks wrong counts per question index
+        let studentWrongDetails = []; // Tracks specific wrong questions per student { student, wrongList: [...] }
+        
+        let currentStudent = null;
+        let currentQuizIndex = 0;
+        let correctCount = 0;
+        let studentWrongList = []; // Current student's wrong questions during test
+        let timerInterval = null;
+        let totalTimeSec = 60;
+        let remainingTimeSec = 60;
+        let startTimeStamp = 0;
+        let isTeacherMode = false;
+
+        const channel = new BroadcastChannel('hanja_game_channel');
+
+        channel.onmessage = (event) => {
+            const data = event.data;
+            if (data.type === 'STUDENT_JOIN') {
+                if (!connectedStudents.some(s => s.grade === data.student.grade && s.classNum === data.student.classNum && s.num === data.student.num)) {
+                    connectedStudents.push(data.student);
+                    updateTeacherView();
+                }
+            } else if (data.type === 'START_GAME') {
+                totalTimeSec = data.timerSec;
+                currentQuizList = quizBanks[data.difficulty] || quizBanks.mid;
+                submittedResults = [];
+                studentWrongDetails = [];
+                questionWrongCounts = new Array(currentQuizList.length).fill(0);
+                triggerCountdown();
+            } else if (data.type === 'SUBMIT_RESULT') {
+                submittedResults.push(data.result);
+                studentWrongDetails.push({ student: data.result.student, wrongList: data.wrongList });
+            } else if (data.type === 'WRONG_ANSWER_LOG') {
+                if (isTeacherMode && questionWrongCounts[data.qIndex] !== undefined) {
+                    questionWrongCounts[data.qIndex]++;
+                }
+            }
+        };
+
+        window.onload = () => {
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('role') === 'student') {
+                    isTeacherMode = false;
+                    showScreen('screen-register');
+                } else {
+                    isTeacherMode = true;
+                    showScreen('screen-teacher');
+                }
+            } catch (err) {
+                isTeacherMode = true;
+                showScreen('screen-teacher');
+            }
+        };
+
+        function getStudentUrl() {
+            return window.location.origin + window.location.pathname + '?role=student';
+        }
+
+        function openQrModal() {
+            const modal = document.getElementById('qr-modal');
+            const container = document.getElementById('qr-img-container');
+            const targetUrl = getStudentUrl();
+            
+            container.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(targetUrl)}" alt="QR Code" width="180" height="180" style="display:block;">`;
+            modal.style.display = 'flex';
+        }
+
+        function closeQrModal() {
+            document.getElementById('qr-modal').style.display = 'none';
+        }
+
+        function openDetailModal() {
+            const bodyEl = document.getElementById('detail-modal-body');
+            if (studentWrongDetails.length === 0) {
+                bodyEl.innerHTML = '<div style="color:#777; text-align:center; padding:20px;">제출된 학생 기록이 없거나 오답 데이터가 없습니다.</div>';
+            } else {
+                bodyEl.innerHTML = studentWrongDetails.map(item => {
+                    const wrongs = item.wrongList;
+                    const wrongText = wrongs.length === 0 
+                        ? '<span style="color:#00ff00;">틀린 문제가 없습니다! (만점)</span>' 
+                        : wrongs.map(w => `<span style="background:#330000; border:1px solid #ff4d4d; padding:2px 8px; border-radius:4px; margin-right:6px; display:inline-block; margin-bottom:4px;">[${w.qNum}번] ${w.char} (정답: ${w.answer})</span>`).join('');
+                    
+                    return `
+                        <div style="background:#080303; border:1px solid #661111; padding:12px; border-radius:8px;">
+                            <div style="font-weight:bold; color:#ff8888; margin-bottom:6px;">${item.student.grade}학년 ${item.student.classNum}반 ${item.student.num}번 ${item.student.name}</div>
+                            <div>${wrongText}</div>
+                        </div>
+                    `;
+                }).join('');
+            }
+            document.getElementById('detail-modal').style.display = 'flex';
+        }
+
+        function closeDetailModal() {
+            document.getElementById('detail-modal').style.display = 'none';
+        }
+
+        function copyStudentLink() {
+            const studentUrl = getStudentUrl();
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(studentUrl).then(() => {
+                    alert('📋 학생 접속 전용 링크가 복사되었습니다!');
+                }).catch(() => {
+                    prompt("아래 주소를 복사하세요:", studentUrl);
+                });
+            } else {
+                prompt("아래 주소를 복사하세요:", studentUrl);
+            }
+        }
+
+        function showScreen(screenId) {
+            ['screen-register', 'screen-student-wait', 'screen-teacher', 'screen-teacher-live', 'screen-teacher-ranking', 'screen-quiz', 'screen-result'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = (id === screenId) ? 'flex' : 'none';
+            });
+        }
+
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            const g = document.getElementById('reg-grade').value.trim();
+            const c = document.getElementById('reg-class').value.trim();
+            const n = document.getElementById('reg-num').value.trim();
+            const name = document.getElementById('reg-name').value.trim();
+            const errEl = document.getElementById('reg-error-msg');
+
+            if (!g || !c || !n || !name) {
+                errEl.style.display = 'block';
+                return;
+            }
+
+            errEl.style.display = 'none';
+            currentStudent = { grade: g, classNum: c, num: n, name: name };
+            document.getElementById('student-info-tag').innerText = `[ ${g}학년 ${c}반 ${n}번 ${name} ]`;
+            
+            channel.postMessage({ type: 'STUDENT_JOIN', student: currentStudent });
+            showScreen('screen-student-wait');
+        }
+
+        function spinNumberRoulette() {
+            const display = document.getElementById('roulette-num-display');
+            let count = 0;
+            const spinTimer = setInterval(() => {
+                display.innerText = Math.floor(Math.random() * 25) + 1;
+                count++;
+                if (count > 20) {
+                    clearInterval(spinTimer);
+                    display.innerText = Math.floor(Math.random() * 25) + 1;
+                }
+            }, 60);
+        }
+
+        function updateTeacherView() {
+            document.getElementById('teacher-conn-count').innerText = connectedStudents.length;
+            const listEl = document.getElementById('teacher-student-list');
+            if (connectedStudents.length === 0) {
+                listEl.innerHTML = '<span style="color:#777;">아직 접속한 학생이 없습니다.</span>';
+                return;
+            }
+            listEl.innerHTML = connectedStudents.map(s => 
+                `<div style="background:#2a0000; border:1px solid #ff4d4d; padding:6px 12px; border-radius:6px; font-size:14px;">
+                    ${s.grade}-${s.classNum} (${s.num}번) ${s.name}
+                </div>`
+            ).join('');
+        }
+
+        function broadcastStartGame() {
+            const timerVal = parseInt(document.getElementById('teacher-timer-sec').value) || 60;
+            const diffVal = document.getElementById('teacher-difficulty').value;
+            
+            channel.postMessage({ type: 'START_GAME', timerSec: timerVal, difficulty: diffVal });
+            totalTimeSec = timerVal;
+            currentQuizList = quizBanks[diffVal];
+            submittedResults = [];
+            studentWrongDetails = [];
+            questionWrongCounts = new Array(currentQuizList.length).fill(0);
+            triggerCountdown();
+        }
+
+        function triggerCountdown() {
+            const overlay = document.getElementById('countdown-overlay');
+            const numEl = document.getElementById('count-number');
+            overlay.style.display = 'flex';
+            
+            let count = 3;
+            numEl.innerText = count;
+
+            const interval = setInterval(() => {
+                count--;
+                if (count > 0) {
+                    numEl.innerText = count;
+                } else {
+                    clearInterval(interval);
+                    overlay.style.display = 'none';
+                    startGameFlow();
+                }
+            }, 900);
+        }
+
+        function startGameFlow() {
+            remainingTimeSec = totalTimeSec;
+            startTimeStamp = Date.now();
+
+            if (isTeacherMode) {
+                showScreen('screen-teacher-live');
+                startTeacherLiveTimer();
+            } else {
+                currentQuizIndex = 0;
+                correctCount = 0;
+                studentWrongList = [];
+                showScreen('screen-quiz');
+                loadQuizQuestion();
+                startTimerBar();
+            }
+        }
+
+        function startTeacherLiveTimer() {
+            clearInterval(timerInterval);
+            const liveTimerEl = document.getElementById('teacher-live-timer');
+
+            timerInterval = setInterval(() => {
+                remainingTimeSec -= 0.1;
+                if (remainingTimeSec <= 0) {
+                    remainingTimeSec = 0;
+                    clearInterval(timerInterval);
+                    renderRankingReport();
+                }
+                liveTimerEl.innerText = Math.ceil(remainingTimeSec) + '초';
+            }, 100);
+        }
+
+        function loadQuizQuestion() {
+            const q = currentQuizList[currentQuizIndex];
+            document.getElementById('quiz-progress').innerText = `문제 ${currentQuizIndex + 1} / ${currentQuizList.length}`;
+            document.getElementById('hanja-char').innerText = q.char;
+
+            const container = document.getElementById('options-container');
+            container.innerHTML = '';
+
+            q.choices.forEach((choice, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.type = 'button';
+                btn.innerHTML = `<span class="option-num">${idx + 1}</span> ${choice}`;
+                btn.onclick = () => selectAnswer(choice === q.answer, currentQuizIndex);
+                container.appendChild(btn);
+            });
+        }
+
+        function selectAnswer(isCorrect, qIndex) {
+            const q = currentQuizList[qIndex];
+            if (isCorrect) {
+                correctCount++;
+            } else {
+                studentWrongList.push({ qNum: qIndex + 1, char: q.char, answer: q.answer });
+                channel.postMessage({ type: 'WRONG_ANSWER_LOG', qIndex: qIndex });
+            }
+
+            currentQuizIndex++;
+            if (currentQuizIndex < currentQuizList.length) {
+                loadQuizQuestion();
+            } else {
+                finishQuiz(false);
+            }
+        }
+
+        function startTimerBar() {
+            clearInterval(timerInterval);
+            const timerText = document.getElementById('quiz-timer-text');
+            const timerBar = document.getElementById('timer-bar');
+
+            timerInterval = setInterval(() => {
+                remainingTimeSec -= 0.1;
+                if (remainingTimeSec <= 0) {
+                    remainingTimeSec = 0;
+                    clearInterval(timerInterval);
+                    finishQuiz(true);
+                }
+                timerText.innerText = `남은 시간: ${Math.ceil(remainingTimeSec)}초`;
+                timerBar.style.width = ((remainingTimeSec / totalTimeSec) * 100) + '%';
+            }, 100);
+        }
+
+        function finishQuiz(isTimeout) {
+            clearInterval(timerInterval);
+            const elapsed = Math.round((Date.now() - startTimeStamp) / 1000);
+            document.getElementById('res-time').innerText = elapsed + '초';
+            
+            const totalQ = currentQuizList.length;
+            const percentage = totalQ > 0 ? Math.round((correctCount / totalQ) * 100) : 0;
+            const isSuccess = !isTimeout && percentage >= 95;
+            
+            document.getElementById('res-percentage').innerText = percentage + '%';
+            document.getElementById('res-score-count').innerText = `${correctCount}/${totalQ}`;
+
+            const titleEl = document.getElementById('res-title-text');
+            const subEl = document.getElementById('res-sub-text');
+
+            if (isSuccess) {
+                titleEl.innerText = "🎉 지옥 탈출 성공!";
+                titleEl.className = "result-title success";
+                subEl.innerText = "95% 이상 정답으로 지옥을 완벽하게 통과하셨습니다!";
+            } else {
+                titleEl.innerText = "💀 지옥 탈출 실패...";
+                titleEl.className = "result-title fail";
+                subEl.innerText = isTimeout ? "시간 초과로 지옥 탈출에 실패했습니다..." : "95% 이상 달성하지 못해 지옥에 남게 됩니다.";
+            }
+
+            // Submit result and wrong details to teacher
+            const resultData = {
+                student: currentStudent,
+                percentage: percentage,
+                elapsed: elapsed,
+                isSuccess: isSuccess
+            };
+            channel.postMessage({ type: 'SUBMIT_RESULT', result: resultData, wrongList: studentWrongList });
+
+            showScreen('screen-result');
+        }
+
+        function renderRankingReport() {
+            showScreen('screen-teacher-ranking');
+
+            submittedResults.sort((a, b) => {
+                if (b.percentage !== a.percentage) {
+                    return b.percentage - a.percentage;
+                }
+                return a.elapsed - b.elapsed;
+            });
+
+            const rankBody = document.getElementById('ranking-table-body');
+            if (submittedResults.length === 0) {
+                rankBody.innerHTML = `<tr><td colspan="6" style="color:#777;">제출된 학생 결과가 없습니다.</td></tr>`;
+            } else {
+                rankBody.innerHTML = submittedResults.map((r, idx) => `
+                    <tr>
+                        <td style="font-weight:bold; color:${idx === 0 ? '#ffff00' : '#fff'};">${idx + 1}등</td>
+                        <td>${r.student.grade}-${r.student.classNum} (${r.student.num}번)</td>
+                        <td style="font-weight:bold;">${r.student.name}</td>
+                        <td style="color:#00ff00; font-weight:bold;">${r.percentage}%</td>
+                        <td>${r.elapsed}초</td>
+                        <td><span style="color:${r.isSuccess ? '#00ff00' : '#ff4d4d'}; font-weight:bold;">${r.isSuccess ? '지옥 탈출 성공' : '지옥 탈출 실패'}</span></td>
+                    </tr>
+                `).join('');
+            }
+
+            const statBody = document.getElementById('question-stat-table-body');
+            statBody.innerHTML = currentQuizList.map((q, idx) => `
+                <tr>
+                    <td>문제 ${idx + 1}</td>
+                    <td style="font-family:'Nanum Myeongjo'; font-size:22px; font-weight:bold; color:#ff8888;">${q.char}</td>
+                    <td>${q.answer}</td>
+                    <td style="color:${questionWrongCounts[idx] > 0 ? '#ff4d4d' : '#888'}; font-weight:bold;">${questionWrongCounts[idx] || 0}명 오답</td>
+                </tr>
+            `).join('');
+        }
+
+        function resetToTeacherDashboard() {
+            showScreen('screen-teacher');
+            updateTeacherView();
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (!isTeacherMode && document.getElementById('screen-quiz').style.display === 'flex') {
+                if (['1', '2', '3', '4'].includes(e.key)) {
+                    const idx = parseInt(e.key) - 1;
+                    const btns = document.querySelectorAll('.option-btn');
+                    if (btns[idx]) btns[idx].click();
+                }
+            }
+        });
+    </script>
+</body>
+</html>
