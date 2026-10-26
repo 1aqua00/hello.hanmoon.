@@ -563,7 +563,11 @@
         <div class="teacher-card">
             <div class="teacher-header">
                 <span>👑 교사 제어 센터</span>
-                <span style="font-size: 18px; color:#ffaaaa;">대기중인 영혼들 : <span id="teacher-conn-count" style="color:#ffff00; font-size:24px;">0</span>명</span>
+                <span id="connection-status" style="font-size: 15px; color: #ff4d4d; font-weight: bold;">⏳ 서버 연결 중...</span>
+            </div>
+
+            <div style="margin-bottom: 15px; font-size: 16px; color: #ffaaaa;">
+                대기중인 영혼들 : <span id="teacher-conn-count" style="color:#ffff00; font-size:24px;">0</span>명
             </div>
 
             <!-- Action Buttons Row -->
@@ -823,6 +827,11 @@
             peer = new Peer(); 
             peer.on('open', (id) => {
                 myPeerId = id;
+                const statusEl = document.getElementById('connection-status');
+                if (statusEl) {
+                    statusEl.innerText = "🟢 서버 연결 완료 (입장 가능)";
+                    statusEl.style.color = "#00ff00";
+                }
             });
 
             peer.on('connection', (conn) => {
@@ -883,7 +892,7 @@
             const targetUrl = getStudentUrl();
             
             if (!targetUrl.includes('host=') || targetUrl.endsWith('host=')) {
-                alert('⏳ 연결 준비 중입니다. 잠시 후 다시 시도해 주세요!');
+                alert('⏳ 아직 서버와 연결 중입니다. 상단의 [🟢 서버 연결 완료] 글자가 뜬 뒤에 다시 눌러주세요!');
                 return;
             }
 
@@ -924,7 +933,7 @@
         function copyStudentLink() {
             const studentUrl = getStudentUrl();
             if (!studentUrl.includes('host=') || studentUrl.endsWith('host=')) {
-                alert('⏳ 연결 준비 중입니다. 잠시 후 다시 시도해 주세요!');
+                alert('⏳ 아직 서버와 연결 중입니다. 상단의 [🟢 서버 연결 완료] 글자가 뜬 뒤에 다시 눌러주세요!');
                 return;
             }
             if (navigator.clipboard && navigator.clipboard.writeText) {
